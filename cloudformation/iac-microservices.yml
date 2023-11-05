@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: The CloudFormation template for the Fargate ECS Cluster.
+Description: Template CloudFormation para criação da infraestrutura necessário para Microsserviços.
 
 Parameters:
   Stage:
@@ -11,13 +11,13 @@ Parameters:
 
 Resources:
 
-  # Create an ECS Cluster
+  # Criação de Cluster ECS
   Cluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Join ['-', ['cluster-ecs', !Ref Stage]]
 
-  # Create a VPC
+  # Criação de VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties: 
@@ -28,7 +28,7 @@ Resources:
         - Key: Name
           Value: !Join ['-', ['vpc', !Ref Stage]]
 
-  # Create a Subnet
+  # Criação da Subnet A
   SubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -39,7 +39,7 @@ Resources:
         - Key: Name
           Value: !Join ['-', ['subnet-pub-a', !Ref Stage]]
 
-  # Create a Subnet
+  # Criação da Subnet B
   SubnetB:
     Type: AWS::EC2::Subnet
     Properties:
@@ -50,13 +50,13 @@ Resources:
         - Key: Name
           Value: !Join ['-', ['subnet-pub-b', !Ref Stage]]
 
-  # Create a route table to allow access to internet
+  # Criação da route table para permitir acesso a internet
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
 
-  # Create a Route to allow access to internet using an internet gateway
+  # Criação de rota publica para permitir acesso a internet utilizando o Internet Gateway
   PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: VPCInternetGatewayAttachment
@@ -65,32 +65,32 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  # Attach Public Route to SubnetA
+  # Attach Public Route a SubnetA
   SubnetAPublicRouteAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties: 
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref SubnetA
 
-  # Attach Public Route to SubnetB
+  # Attach Public Route a SubnetB
   SubnetBPublicRouteAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties: 
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref SubnetB
 
-  # Create an Internet Gateway
+  # Criação do Internet Gateway
   InternetGateway:
     Type: AWS::EC2::InternetGateway
 
-  # Attach the internet gateway to the VPC
+  # Attach internet gateway a VPC
   VPCInternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties: 
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
-  # Create Access Role for ECS-Tasks
+  # Criação de role para ECS Tasks
   ExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -104,7 +104,7 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
 
-  # Create a TaskDefinition with container details
+  # Criação de TaskDefinition com detalhes do container
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties: 
@@ -122,7 +122,7 @@ Resources:
             - ContainerPort: !Ref ContainerPort
               HostPort: !Ref ContainerPort
 
-  # Creat a security group for load balancer and open port 80 in bound from internet
+  # Criação de um grupo de segurança para o balanceador de carga e abra a porta 80 para tráfego de entrada vindo da internet.
   LoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -134,7 +134,7 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  # Creat a security group for Containers and open in bound Container port from Load balancer security group to the Container 
+  # Criação de um grupo de segurança para os contêineres e abra a porta de entrada no contêiner do grupo de segurança do balanceador de carga para o contêiner.
   ContainerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -146,7 +146,7 @@ Resources:
           ToPort: !Ref ContainerPort
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
 
-  # Create a LoadBalancer and attach the Security group and Subnets
+  # Criação de um Balanceador de Carga e anexe o grupo de segurança e as sub-redes.
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties: 
@@ -160,7 +160,7 @@ Resources:
         - !Ref SubnetB
       Type: application
 
-  # Create a TargetGroup for HTTP port 80
+  # Criação de um TargetGroup
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -170,7 +170,7 @@ Resources:
       TargetType: ip
       VpcId: !Ref VPC
 
-  # Create a LoadBalancerListener and attach the TargetGroup and LoadBalancer
+  # Criação de um Listener do Balanceador de Carga associando ao Grupo de Destino e ao Balanceador de Carga.
   LoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -181,7 +181,7 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-  # Create an ECS Service and add created Cluster, TaskDefintion, Subnets, TargetGroup and SecurityGroup
+  # Criação de um Serviço ECS associando o Cluster criado, a Definição de Tarefa, as Sub-redes, o Grupo de Destino e o Grupo de Segurança.
   ECSService:
     Type: AWS::ECS::Service
     DependsOn: LoadBalancerListener

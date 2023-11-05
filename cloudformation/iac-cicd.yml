@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: The CloudFormation template for the CodePipeline.
+Description: Template CloudFormation para criação dos recursos necessário para pipeline de Integração e Entrega Contínua.
 
 Parameters:
   Stage:
@@ -12,19 +12,19 @@ Parameters:
 Resources:
   ################## Deploy Infraestrutura CICD #################
 
-  # Create an ECR Repository to store docker images
+  # Criação de Repositório ECR para armazenar imagens Docker
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Join ['-', ['ecr-repository' ,!Ref Stage]]
 
-  # Create an S3 Bucket to store build artifacts
+  # Criação de Bucket S3 para armazenamento das informações de build do CodeBuild
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Join ['-', ['bucket-artifacts', !Ref Stage,]]
 
-  # Create Access Role for CodePipeLine
+  # Criação da Access Role para o CodePipeLine
   CodePipeLineExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -38,7 +38,7 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AdministratorAccess'
 
-  # Create Access Role for CodeBuild
+  # Criação da Access Role para o CodeBuild
   CodeBuildExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -52,7 +52,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-  # Create Access Role for Cloudformation
+  # Criação da Access Role para o Cloudformation
   CloudformationExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -66,14 +66,14 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AdministratorAccess'
 
-  # Criação de repositório git com AWS CodeCommit
+  # Criação de repositório git CodeCommit
   CodeCommitRepository:
     Type: "AWS::CodeCommit::Repository"
     Properties:
       RepositoryName: devops-iac-microservice-frontend
       RepositoryDescription: Repositório utilizado para implementação de microsserviços utilizando CICD.
 
-  # Create the BuildProject with required Build information
+  # Criação de projeto CodeBuild
   BuildProject:
     Type: AWS::CodeBuild::Project
     Properties: 
@@ -92,10 +92,9 @@ Resources:
       ServiceRole: !Ref CodeBuildExecutionRole
       Source:
         Type: CODEPIPELINE
-        # This file (buildspec.yml In Source code) contains commands to Create and Push a docker image to the ECR_REPOSITORY_URI
         BuildSpec: buildspec.yml
   
-  # Create CodePipeline with 3 stages (Source, Build and Deploy)
+  # Criação do CodePipeline com os 3 Stages (Source, Build and Deploy)
   CodePipeLine:
     Type: AWS::CodePipeline::Pipeline
     DependsOn: S3Bucket
@@ -109,7 +108,6 @@ Resources:
         Fn::GetAtt: [ CodePipeLineExecutionRole, Arn ]
         
       Stages:
-        # Download source code from Github Repo to source-output-artifacts path in S3 Bucket
         - Name: Source
           Actions: 
           - Name: Source
@@ -125,7 +123,6 @@ Resources:
             OutputArtifacts:
               - Name: source-output-artifacts
         
-        # Build the project using the BuildProject and Output build artifacts to build-output-artifacts path in S3 Bucket
         - Name: Build
           Actions:
           - Name: Build
@@ -142,7 +139,6 @@ Resources:
                 ProjectName: !Ref BuildProject
             RunOrder: 1
 
-        # Deploy the project by executing Fargate-Cluster.yml file in the Source code with Cloudformation.
         - Name: Deploy
           Actions:
           - Name: Deploy
@@ -157,7 +153,6 @@ Resources:
             Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
-                # Pass parameter values to Fargate-Cluster.yml for deployment
                 ParameterOverrides: !Sub |
                   {
                     "ImageURI" : { "Fn::GetParam" : ["build-output-artifacts", "imagedefinitions.json", "ImageURI"] },
@@ -167,7 +162,7 @@ Resources:
                 RoleArn: 
                   Fn::GetAtt: [ CloudformationExecutionRole, Arn ]
                 StackName: devops-aws-iac-microservices
-                TemplatePath: source-output-artifacts::cloudformation/ecs.yml
+                TemplatePath: source-output-artifacts::cloudformation/iac-microservices.yml
             RunOrder: 1
 
   
