@@ -166,7 +166,7 @@ Resources:
                   }
                 RoleArn: 
                   Fn::GetAtt: [ CloudformationExecutionRole, Arn ]
-                StackName: devops-aws-deploy-iac-ecs
+                StackName: devops-aws-iac-microservices
                 TemplatePath: source-output-artifacts::cloudformation/ecs.yml
             RunOrder: 1
 
